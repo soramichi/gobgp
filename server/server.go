@@ -55,6 +55,18 @@ type peerMapInfo struct {
 	isRouteServerClient bool
 }
 
+type EventType uint32
+
+const (
+	_ EventType = iota
+	EVENT_PEERS
+)
+
+type Event struct {
+	EventType
+	EventData interface{}
+}
+
 type BgpServer struct {
 	bgpConfig      config.Bgp
 	globalTypeCh   chan config.Global

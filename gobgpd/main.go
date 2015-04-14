@@ -45,6 +45,7 @@ func main() {
 		UseSyslog     string `short:"s" long:"syslog" description:"use syslogd"`
 		Facility      string `long:"syslog-facility" description:"specify syslog facility"`
 		DisableStdlog bool   `long:"disable-stdlog" description:"disable standard logging"`
+		EnableMRT     string `long:"enable-mrt" description:"enable MRT"`
 	}
 	_, err := flags.Parse(&opts)
 	if err != nil {
@@ -138,6 +139,14 @@ func main() {
 
 	configCh := make(chan config.BgpConfigSet)
 	reloadCh := make(chan bool)
+	eventCh := make(chan server.Event, 1024)
+
+	if opts.EnableMRT != "" {
+		log.Info("enable MRT, ", opts.EnableMRT)
+		mrtServer := server.NewMRTServer(opts.EnableMRT, eventCh)
+		go mrtServer.Serve()
+	}
+
 	go config.ReadConfigfileServe(opts.ConfigFile, configCh, reloadCh)
 	reloadCh <- true
 	bgpServer := server.NewBgpServer(bgp.BGP_PORT)
@@ -155,12 +164,15 @@ func main() {
 			var added []config.Neighbor
 			var deleted []config.Neighbor
 
+			n := 0
+
 			if bgpConfig == nil {
 				bgpServer.SetGlobalType(newConfig.Bgp.Global)
 				bgpConfig = &newConfig.Bgp
 				added = newConfig.Bgp.NeighborList
 				deleted = []config.Neighbor{}
 			} else {
+				n = len(bgpConfig.NeighborList)
 				bgpConfig, added, deleted = config.UpdateConfig(bgpConfig, &newConfig.Bgp)
 			}
 
@@ -182,6 +194,24 @@ func main() {
 				log.Infof("Peer %v is deleted", p.NeighborAddress)
 				bgpServer.PeerDelete(p)
 			}
+
+			if n != len(bgpConfig.NeighborList) {
+				peerList := make([]*bgp.PeerInfo, len(bgpConfig.NeighborList))
+				for i, n := range bgpConfig.NeighborList {
+					peerList[i] = &bgp.PeerInfo{
+						AS: n.PeerAs,
+						//ID: n.AS,
+						LocalID: bgpConfig.Global.RouterId,
+						Address: n.NeighborAddress,
+					}
+				}
+				e := server.Event{
+					EventType: server.EVENT_PEERS,
+					EventData: peerList,
+				}
+				eventCh <- e
+			}
+
 		case sig := <-sigCh:
 			switch sig {
 			case syscall.SIGHUP:
