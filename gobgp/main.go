@@ -350,6 +350,7 @@ func modPath(modtype string, eArgs []string) error {
 
 	path := &api.Path{}
 	var prefix, macAddr, ipAddr string
+	var vni int
 	switch rf {
 	case api.AF_IPV4_UC, api.AF_IPV6_UC:
 		if len(eArgs) == 1 || len(eArgs) == 3 {
@@ -362,11 +363,12 @@ func modPath(modtype string, eArgs []string) error {
 			Prefix: prefix,
 		}
 	case api.AF_EVPN:
-		if len(eArgs) == 4 {
+		if len(eArgs) == 5 {
 			macAddr = eArgs[0]
 			ipAddr = eArgs[1]
+			vni, _ = strconv.Atoi(eArgs[2])
 		} else {
-			return fmt.Errorf("usage: global rib add <mac address> <ip address> -a evpn")
+			return fmt.Errorf("usage: global rib add <mac address> <ip address> <vlan id> -a evpn")
 		}
 		path.Nlri = &api.Nlri{
 			Af: rf,
@@ -375,6 +377,7 @@ func modPath(modtype string, eArgs []string) error {
 				MacIpAdv: &api.EvpnMacIpAdvertisement{
 					MacAddr: macAddr,
 					IpAddr:  ipAddr,
+					Labels: []uint32{uint32(vni)},
 				},
 			},
 		}
