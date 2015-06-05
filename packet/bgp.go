@@ -1276,7 +1276,9 @@ func (er *EVPNEthernetAutoDiscoveryRoute) Serialize() ([]byte, error) {
 	buf = append(buf, tbuf...)
 
 	tbuf = make([]byte, 3)
-	labelSerialize(er.Label, tbuf)
+	// set 0 to the label field instead of honestly serializing
+	// labelSerialize(er.Label, tbuf)
+	copy(tbuf, []byte{0, 0, 0})
 	buf = append(buf, tbuf...)
 
 	return buf, nil
