@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"net"
 	"testing"
+	"encoding/json"
+	"fmt"
 )
 
 func keepalive() *BGPMessage {
@@ -142,20 +144,22 @@ func update() *BGPMessage {
 
 func Test_Message(t *testing.T) {
 	l := []*BGPMessage{keepalive(), notification(), refresh(), open(), update()}
-	for _, m := range l {
+	for i, m := range l {
 		buf1, _ := m.Serialize()
 		t.Log("LEN =", len(buf1))
 		msg, err := ParseBGPMessage(buf1)
 		if err != nil {
 			t.Error(err)
 		}
-		buf2, _ := msg.Serialize()
-		if bytes.Compare(buf1, buf2) == 0 {
+		j1, _ := json.Marshal(m)
+		j2, _ := json.Marshal(msg)
+		if bytes.Compare(j1, j2) == 0 {
 			t.Log("OK")
 		} else {
 			t.Error("Something wrong")
-			t.Error(len(buf1), &m, buf1)
-			t.Error(len(buf2), &msg, buf2)
+			fmt.Printf("Messages do not match at test no %d.\n", i+1)
+			fmt.Printf("j1: %s\n", j1)
+			fmt.Printf("j2: %s\n", j2)
 		}
 	}
 }
